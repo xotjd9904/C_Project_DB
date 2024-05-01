@@ -1,4 +1,5 @@
 #define _CRT_SECURE_NO_WARNINGS
+#include <stdbool.h>
 #include <stdio.h>
 #include <ctype.h>
 
@@ -9,20 +10,15 @@ typedef struct {
 	long double data[MAX_SIZE];
 	int top;
 }stack;
-
-
 void init_stack(stack* s) {
 	s->top = -1;
 }
-
-int is_empty(stack s) {
+bool is_empty(stack s) {
 	return s.top == -1;
 }
-
-int is_full(stack s) {
+bool is_full(stack s) {
 	return s.top == MAX_SIZE - 1;
 }
-
 void push(stack* s, long double ob) {
 	if (!is_full(*s)) s->data[++s->top] = ob;
 	else {
@@ -30,7 +26,6 @@ void push(stack* s, long double ob) {
 		exit(1);
 	}
 }
-
 long double pop(stack* s) {
 	if (!is_empty(*s)) return s->data[s->top--];
 	else {
@@ -38,7 +33,6 @@ long double pop(stack* s) {
 		exit(1);
 	}
 }
-
 long double peek(stack s) {
 	if (!is_empty(s)) return s.data[s.top];
 	else {
@@ -46,7 +40,6 @@ long double peek(stack s) {
 		exit(1);
 	}
 }
-
 long double compute(char op, long double opnd1, long double opnd2) {
 	long double sum = 1;
 	switch (op) {
@@ -66,7 +59,6 @@ long double compute(char op, long double opnd1, long double opnd2) {
 		exit(1);
 	}
 }
-
 int PIS(stack s) {
 	switch ((char)peek(s)) {
 	case('+'):
@@ -74,8 +66,9 @@ int PIS(stack s) {
 		return 1;
 	case('*'):
 	case('/'):
-	case('^'):
 		return 2;
+	case('^'):
+		return 3;
 	case('('):
 		return 0;
 	}
@@ -87,13 +80,32 @@ int PIE(char ch) {
 		return 1;
 	case('*'):
 	case('/'):
-	case('^'):
 		return 2;
-	case('('):
+	case('^'):
 		return 3;
+	case('('):
+		return 4;
 	}
 }
 
+char get_token(char p[], int i) {
+	switch (p[i]) {
+	case ' ':
+		return 0;
+	case '+':
+	case '-':
+	case '*':
+	case '/':
+	case '^':
+	case '(':
+		return 1;
+	case ')':
+		return 2;
+	default:
+		return 3;
+	}
+}
+//후위식을 평가하는 함수
 long double eval(char pexp[]) {
 	stack r;
 	init_stack(&r);
@@ -102,40 +114,31 @@ long double eval(char pexp[]) {
 	long double opnd1, opnd2;
 	long double sum = 0;
 
-	while ((ch = pexp[ip++]) != NULL) {
-		switch (isdigit(ch)) {
-		
-		//ch값이 연산자 혹은 공백이라면
-		case 0:
-			sum = 0; //다음 피연산자의 자리수를 계산하기 위해 sum값을 초기화
-
-			if (ch == ' ') continue; //ch가 공백이면 자리수를 구분하기 위한 공백이기 때문에 continue
-			
+	while ((ch = pexp[ip]) != NULL) {
+		//공백이면 자리수를 구분하기 위한 공백이기 때문에 continue
+		if (get_token(pexp, ip) == 0) {
+			sum = 0;//다음 피연산자의 자리수를 계산하기 위해 sum값을 초기화
+			ip++;
+			continue;
+		}
+		//연산자라면
+		else if (get_token(pexp, ip) == 1) {
+			sum = 0;//다음 피연산자의 자리수를 계산하기 위해 sum값을 초기화
 			opnd1 = pop(&r);
 			opnd2 = pop(&r);
-			
 			push(&r, compute(ch, opnd1, opnd2));
-
-			break;
-
-		//ch값이 피연산자라면
-		case 4:
-			
+		}
+		//피연산자라면
+		else {
 			//다음 인덱스 또한 숫자라면 2자리수 이상이므로 sum을 연산
-			if (isdigit(ch) == isdigit(pexp[ip])) sum = sum * 10 + (ch - '0');
-
+			if (get_token(pexp, ip) == get_token(pexp, ip+1))sum = sum * 10 + (ch - '0');
 			//다음 인덱스가 숫자가 아니라면
 			else {
 				sum = sum * 10 + (ch - '0');
 				push(&r, sum);
 			}
-			break;
-
-		//연산자도 아니고 피연산자도 아닌 값이라면 오류
-		default:
-			printf("error");
-			exit(1);
 		}
+		ip++;
 	}
 	if (!is_empty(r)) return pop(&r);
 	else {
@@ -143,7 +146,6 @@ long double eval(char pexp[]) {
 		exit(1);
 	}
 }
-
 //중위식을 후위식으로 변환하는 함수
 void postfix(char iexp[], char pexp[]) {
 	stack s; 
@@ -152,50 +154,44 @@ void postfix(char iexp[], char pexp[]) {
 	int ie = 0;
 	char ch, op;
 	
-	while ((ch = iexp[ie++]) != NULL) {
+	while ((ch = iexp[ie]) != NULL) {
 
-		//해당 인덱스 값이 연산자면
-		if (isdigit(ch) == 0) {
+		//해당 인덱스 값이 공백이면
+		if (get_token(iexp, ie) == 0) {
 			pexp[ip++] = ' '; //연산자를 배열에 넣기전 피연산자의 자리수를 구분하기 위해 공백 추가
-
-			//만약 해당 인덱스 값이 공백이라면 continue 실행
-			if (ch == ' ') continue;
-
-			//공백이 아니면서 ')'가 아니면
-			else if (ch != ')') {
-				while (!is_empty(s) && PIS(s) >= PIE(ch)) {
-					pexp[ip++] = pop(&s);
-					pexp[ip++] = ' ';
-				}
-				push(&s, ch);
+			ie++;
+			continue; //중위식의 공백은 오타로 처리
+		}
+		//해당 인덱스 값이 연산자이면
+		else if (get_token(iexp, ie) == 1) {
+			pexp[ip++] = ' '; //연산자를 배열에 넣기전 피연산자의 자리수를 구분하기 위해 공백 추가
+			while (!is_empty(s) && PIS(s) >= PIE(ch)) {
+				pexp[ip++] = pop(&s);
 			}
-
-			//만약 ')'라면
-			else {
-				if (is_empty(s)) {
-					printf("error");
-					exit(1);
-				}
-				while (!is_empty(s) && (op = pop(&s)) != '(') {
-					pexp[ip++] = op;
-					pexp[ip++] = ' ';
-					
-				}
-				if (op != '('){
-					printf("error");
-					exit(1);
-				}
+			push(&s, ch);
+		}
+		//해당 인덱스 값이 ')'라면
+		else if (get_token(iexp, ie) == 2) {
+			pexp[ip++] = ' '; //연산자를 배열에 넣기전 피연산자의 자리수를 구분하기 위해 공백 추가
+			if (is_empty(s)) {
+				printf("error");
+				exit(1);
 			}
-		
+			// '('가 나올때 까지 스택의 연산자를 배열에 추가
+			while (!is_empty(s) && (op = pop(&s)) != '(') {
+				pexp[ip++] = op;
+			}
+			if (op != '(') {
+				printf("error");
+				exit(1);
+			}
 		}
 		//해당 인덱스 값이 피연산자라면
 		else {
 			pexp[ip++] = ch;
 		}
-		
-
+		ie++;
 	}
-
 	while (!is_empty(s)) {
 		pexp[ip++] = ' '; //연산자를 배열에 넣기전 피연산자의 자리수를 구분하기 위해 공백 추가
 		pexp[ip++] = pop(&s);
@@ -203,19 +199,17 @@ void postfix(char iexp[], char pexp[]) {
 	}
 	pexp[ip] = '\0'; //식의 종료 지점을 알리기 위해 \0을 추가
 }
-
 //사용자로부터 중위식을 입력받는 함수
 void get_exp(char* iexp[]) {
 	printf("수식을 입력하세요: ");
 	gets(iexp);
 }
-
 int main() {
 	char iexp[MAX_SIZE];
 	char pexp[MAX_SIZE];
 
 
-	get_exp(iexp);
+	get_exp(&iexp);
 	postfix(iexp, pexp);
 	printf("%3.2llf", eval(pexp));
 	
