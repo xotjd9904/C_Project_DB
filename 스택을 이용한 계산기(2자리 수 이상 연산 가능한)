@@ -70,6 +70,8 @@ int PIS(stack s) {
 	case('^'):
 		return 3;
 	case('('):
+	case('{'):
+	case('['):
 		return 0;
 	}
 }
@@ -84,6 +86,8 @@ int PIE(char ch) {
 	case('^'):
 		return 3;
 	case('('):
+	case('{'):
+	case('['):
 		return 4;
 	}
 }
@@ -98,8 +102,12 @@ char get_token(char p[], int i) {
 	case '/':
 	case '^':
 	case '(':
+	case '{':
+	case '[':
 		return 1;
 	case ')':
+	case '}':
+	case ']':
 		return 2;
 	default:
 		return 3;
@@ -131,7 +139,7 @@ long double eval(char pexp[]) {
 		//피연산자라면
 		else {
 			//다음 인덱스 또한 숫자라면 2자리수 이상이므로 sum을 연산
-			if (get_token(pexp, ip) == get_token(pexp, ip+1))sum = sum * 10 + (ch - '0');
+			if (get_token(pexp, ip) == get_token(pexp, ip + 1))sum = sum * 10 + (ch - '0');
 			//다음 인덱스가 숫자가 아니라면
 			else {
 				sum = sum * 10 + (ch - '0');
@@ -148,12 +156,12 @@ long double eval(char pexp[]) {
 }
 //중위식을 후위식으로 변환하는 함수
 void postfix(char iexp[], char pexp[]) {
-	stack s; 
+	stack s;
 	init_stack(&s);
 	int ip = 0;
 	int ie = 0;
 	char ch, op;
-	
+
 	while ((ch = iexp[ie]) != NULL) {
 
 		//해당 인덱스 값이 공백이면
@@ -191,13 +199,15 @@ void postfix(char iexp[], char pexp[]) {
 			pexp[ip++] = ch;
 		}
 		ie++;
+	
 	}
 	while (!is_empty(s)) {
 		pexp[ip++] = ' '; //연산자를 배열에 넣기전 피연산자의 자리수를 구분하기 위해 공백 추가
 		pexp[ip++] = pop(&s);
-		
+
 	}
 	pexp[ip] = '\0'; //식의 종료 지점을 알리기 위해 \0을 추가
+	
 }
 //사용자로부터 중위식을 입력받는 함수
 void get_exp(char* iexp[]) {
@@ -212,6 +222,6 @@ int main() {
 	get_exp(&iexp);
 	postfix(iexp, pexp);
 	printf("%3.2llf", eval(pexp));
-	
+
 	return 0;
 }
